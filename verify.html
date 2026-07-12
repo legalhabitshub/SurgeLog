@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SurgeLog — Verify Procedure</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=DM+Serif+Display&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f6f5f1;--surface:#fff;--border:#dddbd5;
+  --accent:#1a56db;--accent-light:#e8effd;
+  --green:#16a34a;--green-light:#dcfce7;--green-dark:#15803d;
+  --red:#dc2626;--red-light:#fee2e2;
+  --text:#0d0f14;--text-mid:#5a5a6e;--text-dim:#9999aa;
+  --serif:'DM Serif Display',Georgia,serif;
+  --sans:'Inter',system-ui,sans-serif;
+}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+.topbar{
+  background:#fff;border-bottom:1px solid var(--border);
+  padding:0 5vw;height:56px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.logo{font-family:var(--serif);font-size:18px;color:var(--text)}
+.logo span{color:var(--accent)}
+
+.main{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 20px}
+
+.card{
+  width:100%;max-width:560px;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:16px;
+  overflow:hidden;
+  box-shadow:0 4px 24px rgba(0,0,0,.06);
+}
+
+/* States */
+.state{display:none;padding:40px}
+.state.active{display:block}
+
+/* Loading state */
+#state-loading{text-align:center;padding:60px 40px}
+.spinner{
+  width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--accent);
+  border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 20px;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Invalid state */
+#state-invalid{text-align:center}
+.state-icon{font-size:48px;margin-bottom:16px}
+.state-title{font-family:var(--serif);font-size:28px;margin-bottom:10px}
+.state-sub{font-size:15px;color:var(--text-mid);line-height:1.6}
+
+/* Review state */
+.review-header{
+  background:linear-gradient(135deg,#0d0f14 0%,#1a1d26 100%);
+  padding:32px 40px;
+}
+.review-eyebrow{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#4f8ef7;margin-bottom:12px}
+.review-title{font-family:var(--serif);font-size:26px;color:#e8eaf0;line-height:1.3;margin-bottom:6px}
+.review-meta{font-size:13px;color:#8892aa}
+
+.review-body{padding:32px 40px}
+
+.info-block{margin-bottom:24px}
+.info-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);margin-bottom:12px}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.detail-item{}
+.detail-lbl{font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin-bottom:3px}
+.detail-val{font-size:14px;color:var(--text);font-weight:500}
+
+.code-row{display:flex;gap:10px;margin-top:4px}
+.code-pill{
+  background:var(--accent-light);color:var(--accent);
+  font-size:11px;font-weight:700;font-family:'JetBrains Mono','Fira Code',monospace;
+  padding:4px 10px;border-radius:6px;
+}
+
+hr.rule{border:none;border-top:1px solid var(--border);margin:24px 0}
+
+.confirm-box{
+  background:#f8fffe;border:1px solid #bbf7d0;border-radius:10px;
+  padding:20px;margin-bottom:20px;
+}
+.confirm-title{font-size:14px;font-weight:700;margin-bottom:6px}
+.confirm-text{font-size:13px;color:var(--text-mid);line-height:1.6;margin-bottom:16px}
+.confirm-field label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-dim);margin-bottom:5px}
+.confirm-field input{
+  width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;
+  font-family:var(--sans);font-size:14px;color:var(--text);background:var(--surface);
+  transition:border-color .15s;outline:none;
+}
+.confirm-field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-light)}
+
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  padding:12px 24px;border-radius:8px;font-family:var(--sans);
+  font-size:14px;font-weight:700;cursor:pointer;border:none;transition:all .15s;width:100%;
+}
+.btn-green{background:var(--green);color:#fff}
+.btn-green:hover{background:var(--green-dark)}
+.btn-green:disabled{opacity:.5;cursor:not-allowed}
+.btn-ghost{background:none;color:var(--text-mid);border:1px solid var(--border);margin-top:10px}
+.btn-ghost:hover{color:var(--text);border-color:#aaa}
+
+.privacy-note{font-size:12px;color:var(--text-dim);text-align:center;margin-top:14px;line-height:1.6}
+
+/* Already verified */
+#state-verified{text-align:center}
+
+/* Success */
+#state-success{text-align:center}
+
+footer{
+  text-align:center;padding:24px;
+  font-size:12px;color:var(--text-dim);
+  border-top:1px solid var(--border);
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">SurgeLog</div>
+  <div style="font-size:12px;color:var(--text-dim)">Procedure Verification</div>
+</div>
+
+<div class="main">
+  <div class="card">
+
+    <!-- Loading -->
+    <div class="state active" id="state-loading">
+      <div class="spinner"></div>
+      <div style="color:var(--text-mid);font-size:14px">Loading procedure record...</div>
+    </div>
+
+    <!-- Invalid token -->
+    <div class="state" id="state-invalid">
+      <div class="state-icon">⚠️</div>
+      <div class="state-title">Link not valid</div>
+      <div class="state-sub">This verification link has expired, already been used, or does not exist.<br><br>Ask the surgeon to send a new verification request.</div>
+    </div>
+
+    <!-- Already verified -->
+    <div class="state" id="state-verified">
+      <div class="state-icon">✅</div>
+      <div class="state-title">Already verified</div>
+      <div class="state-sub" id="already-verified-text">This procedure was already verified.</div>
+    </div>
+
+    <!-- Review and confirm -->
+    <div class="state" id="state-review">
+      <div class="review-header">
+        <div class="review-eyebrow">Verification Request</div>
+        <div class="review-title" id="rev-proc-name">—</div>
+        <div class="review-meta" id="rev-proc-meta">—</div>
+      </div>
+      <div class="review-body">
+        <div class="info-block">
+          <div class="info-label">Procedure Details</div>
+          <div class="detail-grid">
+            <div class="detail-item"><div class="detail-lbl">Date</div><div class="detail-val" id="rev-date">—</div></div>
+            <div class="detail-item"><div class="detail-lbl">Surgeon Role</div><div class="detail-val" id="rev-role">—</div></div>
+            <div class="detail-item"><div class="detail-lbl">Approach</div><div class="detail-val" id="rev-approach">—</div></div>
+            <div class="detail-item"><div class="detail-lbl">Outcome</div><div class="detail-val" id="rev-outcome">—</div></div>
+            <div class="detail-item"><div class="detail-lbl">ASA Grade</div><div class="detail-val" id="rev-asa">—</div></div>
+            <div class="detail-item"><div class="detail-lbl">Duration</div><div class="detail-val" id="rev-duration">—</div></div>
+            <div class="detail-item"><div class="detail-lbl">Institution</div><div class="detail-val" id="rev-institution">—</div></div>
+            <div class="detail-item"><div class="detail-lbl">Anaesthesia</div><div class="detail-val" id="rev-anaesthesia">—</div></div>
+          </div>
+        </div>
+
+        <div class="info-block">
+          <div class="info-label">Clinical Codes</div>
+          <div class="code-row" id="rev-codes"></div>
+        </div>
+
+        <div id="rev-notes-block" style="display:none">
+          <div class="info-block">
+            <div class="info-label">Surgeon's Reflective Notes</div>
+            <div style="font-size:14px;color:var(--text-mid);line-height:1.6;background:var(--bg);border-radius:8px;padding:14px;border:1px solid var(--border)" id="rev-notes"></div>
+          </div>
+        </div>
+
+        <hr class="rule">
+
+        <div class="confirm-box">
+          <div class="confirm-title">Counter-sign this record</div>
+          <div class="confirm-text">By verifying, you confirm that you supervised or observed this procedure and that the details above are accurate to the best of your knowledge.</div>
+          <div class="confirm-field" style="margin-bottom:12px">
+            <label>Your full name <span style="color:var(--red)">*</span></label>
+            <input type="text" id="verifier-name" placeholder="Dr. Jane Smith">
+          </div>
+          <div class="confirm-field">
+            <label>Your title / designation</label>
+            <input type="text" id="verifier-title" placeholder="Consultant Surgeon, MBBS MS FRCS">
+          </div>
+        </div>
+
+        <div id="verif-err" style="background:var(--red-light);border:1px solid #fca5a5;color:var(--red);font-size:13px;padding:10px 14px;border-radius:8px;margin-bottom:14px;display:none"></div>
+
+        <button class="btn btn-green" onclick="doVerify()" id="verify-btn">✓ Confirm and verify this procedure</button>
+        <button class="btn btn-ghost" onclick="window.close()">Not my case — close this</button>
+
+        <div class="privacy-note">Your name will be recorded on this verification. Patient details are anonymised. You are not creating an account on SurgeLog.</div>
+      </div>
+    </div>
+
+    <!-- Success -->
+    <div class="state" id="state-success" style="padding:60px 40px">
+      <div class="state-icon">✅</div>
+      <div class="state-title" style="font-family:var(--serif);font-size:28px;margin:16px 0 10px">Procedure verified</div>
+      <div class="state-sub">Your counter-signature has been recorded. The surgeon's logbook entry is now marked as verified.<br><br>You can close this window.</div>
+    </div>
+
+  </div>
+</div>
+
+<footer>SurgeLog — Free verified surgical logbook &nbsp;·&nbsp; <a href="index.html" style="color:var(--accent)">surgelog.app</a></footer>
+
+<script>
+const SUPABASE_URL = 'https://owczgkqqfyrcujvvkhib.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im93Y3pna3FxZnlyY3VqdnZraGliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0NTIzNjEsImV4cCI6MjA5ODAyODM2MX0.5TMWjsv0aHwJslxJAbc4f2-XXStTAD0OVVg6wUyaT5c';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+let procData = null;
+
+const params = new URLSearchParams(location.search);
+const procId = params.get('proc');
+const token = params.get('token');
+
+document.addEventListener('DOMContentLoaded', async () => {
+  if (!procId || !token) { showState('invalid'); return; }
+
+  // Fetch procedure
+  const { data, error } = await sb
+    .from('procedures')
+    .select('*, profiles(full_name, specialty, registration_number)')
+    .eq('id', procId)
+    .single();
+
+  if (error || !data) { showState('invalid'); return; }
+
+  // Check token matches
+  if (data.verification_token !== token) { showState('invalid'); return; }
+
+  // Already verified
+  if (data.verified) {
+    document.getElementById('already-verified-text').textContent =
+      `This procedure was already verified on ${fmtDate(data.verified_at)}${data.verified_by ? ' by ' + data.verified_by : ''}.`;
+    showState('verified'); return;
+  }
+
+  procData = data;
+  populateReview(data);
+  showState('review');
+});
+
+function populateReview(p) {
+  const surgeon = p.profiles;
+  document.getElementById('rev-proc-name').textContent = p.procedure_name;
+  document.getElementById('rev-proc-meta').textContent =
+    `Logged by ${surgeon?.full_name || 'Unknown surgeon'}${surgeon?.specialty ? ' · ' + surgeon.specialty : ''}${surgeon?.registration_number ? ' · Reg: ' + surgeon.registration_number : ''}`;
+
+  document.getElementById('rev-date').textContent = fmtDate(p.date);
+  document.getElementById('rev-role').textContent = p.role || '—';
+  document.getElementById('rev-approach').textContent = p.approach || '—';
+  document.getElementById('rev-outcome').textContent = p.outcome || '—';
+  document.getElementById('rev-asa').textContent = p.asa_grade || '—';
+  document.getElementById('rev-duration').textContent = p.duration_minutes ? p.duration_minutes + ' min' : '—';
+  document.getElementById('rev-institution').textContent = p.institution_name_freetext || '—';
+  document.getElementById('rev-anaesthesia').textContent = p.anaesthesia_type || '—';
+
+  const codesEl = document.getElementById('rev-codes');
+  codesEl.innerHTML = '';
+  if (p.icd10_code) codesEl.innerHTML += `<span class="code-pill">ICD ${p.icd10_code}</span>`;
+  if (p.cpt_code) codesEl.innerHTML += `<span class="code-pill">CPT ${p.cpt_code}</span>`;
+  if (!p.icd10_code && !p.cpt_code) codesEl.innerHTML = `<span style="font-size:13px;color:var(--text-dim)">No codes assigned</span>`;
+
+  if (p.reflective_notes) {
+    document.getElementById('rev-notes').textContent = p.reflective_notes;
+    document.getElementById('rev-notes-block').style.display = 'block';
+  }
+}
+
+async function doVerify() {
+  const name = document.getElementById('verifier-name').value.trim();
+  const title = document.getElementById('verifier-title').value.trim();
+  const errEl = document.getElementById('verif-err');
+  errEl.style.display = 'none';
+
+  if (!name) { errEl.textContent = 'Your name is required to counter-sign.'; errEl.style.display = 'block'; return; }
+  if (!procData) return;
+
+  const btn = document.getElementById('verify-btn');
+  btn.disabled = true;
+  btn.textContent = 'Recording verification...';
+
+  const verifiedBy = title ? `${name}, ${title}` : name;
+
+  const { error } = await sb.from('procedures').update({
+    verified: true,
+    verified_at: new Date().toISOString(),
+    verified_by: verifiedBy,
+  }).eq('id', procData.id).eq('verification_token', token);
+
+  if (error) {
+    btn.disabled = false;
+    btn.textContent = '✓ Confirm and verify this procedure';
+    errEl.textContent = 'Something went wrong. Please try again or contact the surgeon.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  showState('success');
+}
+
+function showState(id) {
+  document.querySelectorAll('.state').forEach(s => s.classList.remove('active'));
+  document.getElementById('state-' + id).classList.add('active');
+}
+
+function fmtDate(d) {
+  if (!d) return '—';
+  const dt = new Date(d);
+  return dt.toLocaleDateString('en-GB', {day:'2-digit', month:'long', year:'numeric'});
+}
+</script>
+</body>
+</html>
